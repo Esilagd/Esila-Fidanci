@@ -5,7 +5,7 @@ dont worry you will see trail and wave trail
 windows, android, mac
 ## support
 ios
-it will be avaible windows and other soon :)
+- it will be avaible windows and other soon :)
 ## what do you need this
 - creating room
 - joining room
