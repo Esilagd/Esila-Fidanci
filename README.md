@@ -12,7 +12,7 @@ like multiplayer mod in geode.
 # release
 click this link: 
 # what happend
-if we have robtop release 2.21 will no longer to update my mods
+if we have robtop release 2.21 will no longer to update my ipa
 
 update comming soon...
 
