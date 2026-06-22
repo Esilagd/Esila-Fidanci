@@ -1,64 +1,62 @@
-name: Build iOS IPA
+name: "Geometry multiplayer"
 
 on:
-  push:
-    branches: [ "main" ]
+  workflow_dispatch: # Allows you to manually trigger the build from your iPad
 
 jobs:
   build:
     name: Build IPA
-    runs-on: macos-latest
-
+    runs-on: macos-latest # Utilizes GitHub's remote Apple environments
+    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install Apple Certificate and Provisioning Profile
-      env:
-        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-        PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
-      run: |
-        # Create temporary keychain variables
-        CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
-        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+      - name: Install Apple Certificate and Profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+        run: |
+          # Create temporary keychain variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
 
-        # Import certificate and profile from secrets
-        echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-        echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          # Import credentials from secrets
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
 
-        # Create and unlock a temporary keychain
-        security create-keychain -p "" $KEYCHAIN_PATH
-        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-        security unlock-keychain -p "" $KEYCHAIN_PATH
+          # Create dynamic keychain
+          security create-keychain -p "" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "" $KEYCHAIN_PATH
 
-        # Import certificate to the keychain
-        security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" $KEYCHAIN_PATH
+          # Import certificate to keychain
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -A -t cert -f p12
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" $KEYCHAIN_PATH
 
-        # Install provisioning profile
-        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          # Deploy provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-    - name: Build Xcode Archive
-      run: |
-        xcodebuild -workspace ios/YourApp.xcworkspace \
-                   -scheme YourScheme \
-                   -sdk iphoneos \
-                   -configuration Release \
-                   -archivePath $RUNNER_TEMP/YourApp.xcarchive \
-                   archive
+      - name: Xcode Archive Build
+        run: |
+          xcodebuild archive \
+            -scheme "YourAppScheme" \
+            -archivePath $RUNNER_TEMP/YourApp.xcarchive \
+            -sdk iphoneos \
+            -configuration Release
 
-    - name: Export IPA
-      run: |
-        xcodebuild -exportArchive \
-                   -archivePath $RUNNER_TEMP/YourApp.xcarchive \
-                   -exportOptionsPlist ios/ExportOptions.plist \
-                   -exportPath $RUNNER_TEMP/build
+      - name: Export IPA Binary
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/YourApp.xcarchive \
+            -exportPath $RUNNER_TEMP/exported_ipa \
+            -exportOptionsPlist ExportOptions.plist
 
-    - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-ipa
-        path: ${{ github.workspace }}/../settings/temp/build/*.ipa
+      - name: Upload IPA File to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-Application-IPA
+          path: ${{ runner.temp }}/exported_ipa/*.ipa
